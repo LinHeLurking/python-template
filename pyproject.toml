@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "python-template"
+version = "0.1.0"
+description = "Python template project with tests and C extensions."
+authors = ["LinHeLurking"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
