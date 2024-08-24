@@ -10,6 +10,13 @@ readme = "README.md"
 python = "^3.12"
 
 
+[tool.poetry.group.dev.dependencies]
+pybind11 = "^2.13.5"
+ninja = "^1.11.1.1"
+cmake = "^3.30.2"
+pytest = "^8.3.2"
+mypy = "^1.11.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -1,2 +1,20 @@
 # mypy cache
 .mypy_cache
+# clangd cache
+.cache
+# pytest cache
+.pytest_cache
+
+# poetry lock
+# You CAN cancel ingore when you want to lock every single dependency.
+poetry.lock
+
+# build output
+build
+dist
+
+# vscode settings
+.vscode 
+
+# python cache
+__pycache__
