@@ -17,7 +17,7 @@ dist
 /python_template/_ext.pyi
 
 # vscode settings
-.vscode 
+.vscode
 
 # python cache
 __pycache__

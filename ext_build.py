@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+import argparse
+import os
 import shutil
+import subprocess
+from os import path as osp
 from typing import Optional
+
 import cmake
 import ninja
 import pybind11
-import os
-from os import path as osp
-import subprocess
-import argparse
 
 # CMAKE binary
 CMAKE_BIN = "cmake"
