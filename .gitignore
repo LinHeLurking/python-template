@@ -12,9 +12,16 @@ poetry.lock
 # build output
 build
 dist
+*.so
+*.dll
+/python_template/_ext.pyi
 
 # vscode settings
 .vscode 
 
 # python cache
 __pycache__
+
+# venv
+/venv
+/.venv
