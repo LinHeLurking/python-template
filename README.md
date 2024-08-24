@@ -26,6 +26,10 @@ Run `poetry build` and everything's done.
 - Mypy will generate `*.pyi` files for C++ extension in source tree.
 - All python files and C++ libraries will be packaged as a `.whl` file.
 
+## Development
+
+Run `poetry install --with dev` to install all development dependencies.
+
 ## Run Tests
 
 Running `pytest tests` is enough. Everything will be automatically discoverable in IDE.
