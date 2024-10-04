@@ -153,7 +153,7 @@ class CmakeExtension:
         self._run_cmd(cmd=cmd, term_header=self._cmd_term_headers["clean"])
 
     def _get_stub_gen_cmd(self) -> list[str]:
-        cmd = ["stubgen", "--module", self.module_name, "--output", PROJECT_ROOT]
+        cmd = ["stubgen", "--module", self.module_name, "--output", PROJECT_ROOT, "--include-docstrings"]
         return cmd
 
     def stubgen(self):
