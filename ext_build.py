@@ -30,14 +30,18 @@ _CMAKE_DEFAULT_DEF: dict[str, str] = {
 }
 
 
+class SubCommandError(Exception):
+    ...
+
+
 class CmakeExtension:
     def __init__(
-        self,
-        module_name: str,
-        cmake_src_dir: str,
-        cmake_bin_dir: Optional[str] = None,
-        cmake_extr_def: dict[str, str] = {},
-        dry_run: bool = False,
+            self,
+            module_name: str,
+            cmake_src_dir: str,
+            cmake_bin_dir: Optional[str] = None,
+            cmake_extr_def: dict[str, str] = {},
+            dry_run: bool = False,
     ) -> None:
         self.module_name = module_name
         self.cmake_src_dir = osp.abspath(cmake_src_dir)
@@ -51,6 +55,11 @@ class CmakeExtension:
             if k not in self.cmake_extra_def:
                 self.cmake_extra_def[k] = v
         self.dry_run = dry_run
+        self.cmd_in_shell = False
+        self.rm_cmd = "rm"
+        if os.name == "nt":
+            self.cmd_in_shell = True
+            self.rm_cmd = "del"
 
         self._cmd_term_headers = {
             "configure": "[CMAKE]",
@@ -62,9 +71,9 @@ class CmakeExtension:
     def _run_single_cmd(self, cmd: list[str], term_header: str):
         print(f"\u001b[34m{term_header}\u001b[0m\t\u001b[32m{' '.join(cmd)}\u001b[0m")
         if self.dry_run:
-            return
+            return 0
         with subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=self.cmd_in_shell,
         ) as proc:
             if proc.stdout is not None:
                 for line_bytes in proc.stdout:
@@ -74,6 +83,9 @@ class CmakeExtension:
                 for line_bytes in proc.stderr:
                     line_str = line_bytes.decode().strip()
                     print(f"\u001b[31m{term_header}\t\u001b[0m{line_str}")
+            code = proc.wait()
+            if code != 0:
+                raise SubCommandError
 
     def _run_cmd(self, cmd: list[str] | list[list[str]], term_header: str = ""):
         assert len(cmd) > 0
@@ -81,7 +93,7 @@ class CmakeExtension:
             self._run_single_cmd(cmd=cmd, term_header=term_header)  # type: ignore
         else:
             for _cmd in cmd:
-                self._run_cmd(cmd=_cmd, term_header=term_header)  # type: ignore
+                self._run_single_cmd(cmd=_cmd, term_header=term_header)  # type: ignore
 
     def _get_configure_cmd(self) -> list[str]:
         cmd = [
@@ -106,21 +118,8 @@ class CmakeExtension:
         cmd = ["ninja", "-C", self.cmake_bin_dir]
         return cmd
 
-    def _get_post_build_cmd(self) -> list[list[str]]:
-        cmd: list[list[str]] = []
-        _copy_ext = (".so", ".dll")
-        in_tree_path = osp.join(PROJECT_ROOT, *self.module_name.split(".")[:-1])
-        for path in os.listdir(self.cmake_bin_dir):
-            for suffix in _copy_ext:
-                if path.endswith(suffix):
-                    cmd.append(
-                        [
-                            "cp",
-                            osp.join(self.cmake_bin_dir, path),
-                            osp.join(in_tree_path, path),
-                        ]
-                    )
-                    break
+    def _get_post_build_cmd(self) -> list[str]:
+        cmd: list[str] = [CMAKE_BIN, "--install", self.cmake_bin_dir]
         return cmd
 
     def build(self):
@@ -131,36 +130,30 @@ class CmakeExtension:
         if len(post_build_cmd) > 0:
             self._run_cmd(post_build_cmd, term_header=term_header)
 
-    def _get_rm_cmd(self, path: str) -> list[str]:
-        if not osp.exists(path):
-            return []
-        if osp.isfile(path):
-            return ["rm", path]
-        elif osp.isdir(path):
-            return ["rm", "-r", path]
-        else:
-            return []
-
     def _get_clean_cmd(self) -> list[list[str]]:
-        cmd: list[list[str]] = []
-        cmd.append(self._get_rm_cmd(path=self.cmake_bin_dir))
-        in_tree_path = osp.join(PROJECT_ROOT, *self.module_name.split(".")[:-1])
-        remove_suffixes = (".pyi", ".so", ".dll")
-        for path in os.listdir(in_tree_path):
-            for suffix in remove_suffixes:
-                if path.endswith(suffix):
-                    path = osp.join(in_tree_path, path)
-                    cmd.append(self._get_rm_cmd(path))
-                    break
+        cmd: list[list[str]] = [[CMAKE_BIN, "--build", self.cmake_bin_dir, "--target", "clean"]]
+        manifest_path = osp.join(self.cmake_bin_dir, "install_manifest.txt")
+        if not osp.exists(manifest_path):
+            return cmd
+        with open(manifest_path, "r") as f:
+            for line in f.readlines():
+                lib_path = line
+                pyi_path = f"{lib_path.split(".", 1)[0]}.pyi"
+                if osp.exists(lib_path):
+                    cmd.append([self.rm_cmd, lib_path])
+                if osp.exists(pyi_path):
+                    cmd.append([self.rm_cmd, pyi_path])
         return cmd
 
     def clean(self):
         cmd = self._get_clean_cmd()
+        if len(cmd) == 0:
+            print(f"\u001b[34mNothing to clean.\t\u001b[0m")
+            return
         self._run_cmd(cmd=cmd, term_header=self._cmd_term_headers["clean"])
 
     def _get_stub_gen_cmd(self) -> list[str]:
         cmd = ["stubgen", "--module", self.module_name, "--output", PROJECT_ROOT]
-
         return cmd
 
     def stubgen(self):
@@ -192,13 +185,16 @@ def main():
     )
 
     extensions = [ext_pybind11]
-    for ext in extensions:
-        if args.clean:
-            ext.clean()
-            return
-        ext.configure()
-        ext.build()
-        ext.stubgen()
+    try:
+        for ext in extensions:
+            if args.clean:
+                ext.clean()
+                return
+            ext.configure()
+            ext.build()
+            ext.stubgen()
+    except SubCommandError:
+        pass
 
 
 if __name__ == "__main__":

@@ -25,3 +25,6 @@ __pycache__
 # venv
 /venv
 /.venv
+
+# JetBrains IDE
+.idea
