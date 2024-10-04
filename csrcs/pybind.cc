@@ -16,7 +16,8 @@ PYBIND11_MODULE(MODULE_NAME, m) {
   py::class_<Greeter>(m, "Greeter")
       .def(py::init<>())
       .def("simple_greet", &Greeter::SimpleGreet)
-      .def("complex_greet", &Greeter::ComplexGreet, R"(greet many targets with common message
+      .def("complex_greet", &Greeter::ComplexGreet,
+           R"(greet many targets with common message
 Args:
     arg0(list[str]): targets you want to greet.
     arg1(str): the common message.

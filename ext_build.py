@@ -30,18 +30,17 @@ _CMAKE_DEFAULT_DEF: dict[str, str] = {
 }
 
 
-class SubCommandError(Exception):
-    ...
+class SubCommandError(Exception): ...
 
 
 class CmakeExtension:
     def __init__(
-            self,
-            module_name: str,
-            cmake_src_dir: str,
-            cmake_bin_dir: Optional[str] = None,
-            cmake_extr_def: dict[str, str] = {},
-            dry_run: bool = False,
+        self,
+        module_name: str,
+        cmake_src_dir: str,
+        cmake_bin_dir: Optional[str] = None,
+        cmake_extr_def: dict[str, str] = {},
+        dry_run: bool = False,
     ) -> None:
         self.module_name = module_name
         self.cmake_src_dir = osp.abspath(cmake_src_dir)
@@ -73,7 +72,10 @@ class CmakeExtension:
         if self.dry_run:
             return 0
         with subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=self.cmd_in_shell,
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=self.cmd_in_shell,
         ) as proc:
             if proc.stdout is not None:
                 for line_bytes in proc.stdout:
@@ -131,7 +133,9 @@ class CmakeExtension:
             self._run_cmd(post_build_cmd, term_header=term_header)
 
     def _get_clean_cmd(self) -> list[list[str]]:
-        cmd: list[list[str]] = [[CMAKE_BIN, "--build", self.cmake_bin_dir, "--target", "clean"]]
+        cmd: list[list[str]] = [
+            [CMAKE_BIN, "--build", self.cmake_bin_dir, "--target", "clean"]
+        ]
         manifest_path = osp.join(self.cmake_bin_dir, "install_manifest.txt")
         if not osp.exists(manifest_path):
             return cmd
@@ -153,7 +157,14 @@ class CmakeExtension:
         self._run_cmd(cmd=cmd, term_header=self._cmd_term_headers["clean"])
 
     def _get_stub_gen_cmd(self) -> list[str]:
-        cmd = ["stubgen", "--module", self.module_name, "--output", PROJECT_ROOT, "--include-docstrings"]
+        cmd = [
+            "stubgen",
+            "--module",
+            self.module_name,
+            "--output",
+            PROJECT_ROOT,
+            "--include-docstrings",
+        ]
         return cmd
 
     def stubgen(self):
