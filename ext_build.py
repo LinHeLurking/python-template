@@ -104,8 +104,8 @@ class CmakeExtension:
             self.cmake_src_dir,
             "-B",
             self.cmake_bin_dir,
-            "-GNinja",
-            self.cmake_bin_dir,
+            "-G",
+            "Ninja",
         ]
         for k, v in self.cmake_extra_def.items():
             cmd.append(f"-D{k}={v}")
