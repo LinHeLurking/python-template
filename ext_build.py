@@ -143,8 +143,8 @@ class CmakeExtension:
             return cmd
         with open(manifest_path, "r") as f:
             for line in f.readlines():
-                lib_path = line
-                pyi_path = f"{lib_path.split(".", 1)[0]}.pyi"
+                lib_path = line.replace("/", osp.sep)
+                pyi_path = f"{lib_path.split(".", 1)[0]}.pyi".replace("/", osp.sep)
                 if osp.exists(lib_path):
                     cmd.append([self.rm_cmd, lib_path])
                 if osp.exists(pyi_path):
