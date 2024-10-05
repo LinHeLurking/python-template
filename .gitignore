@@ -11,6 +11,7 @@ poetry.lock
 
 # build output
 build
+cmake-build-*
 dist
 *.so
 *.dll

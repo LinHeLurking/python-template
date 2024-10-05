@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import shutil
 import subprocess
 from os import path as osp
 from typing import Optional
 
 import cmake
-import ninja
 import pybind11
 
 # CMAKE binary
 CMAKE_BIN = "cmake"
 if os.name == "nt":
     CMAKE_BIN = f"{CMAKE_BIN}.exe"
+if os.name != "nt":
+    import ninja
+
+    # setup ninja path
+    os.environ["PATH"] += f"{os.pathsep}{ninja.BIN_DIR}"
 CMAKE_BIN = osp.join(cmake.CMAKE_BIN_DIR, CMAKE_BIN)
 
 # `pybind11-config.cmake` dir
 PYBIND11_CMAKE_DIR = pybind11.get_cmake_dir()
 
-# setup ninja path
-os.environ["PATH"] += f"{os.pathsep}{ninja.BIN_DIR}"
 
 PROJECT_ROOT = osp.abspath(osp.dirname(__file__))
 
@@ -45,7 +46,7 @@ class CmakeExtension:
         self.module_name = module_name
         self.cmake_src_dir = osp.abspath(cmake_src_dir)
         if cmake_bin_dir is None:
-            self.cmake_bin_dir = osp.join(self.cmake_src_dir, "build")
+            self.cmake_bin_dir = osp.join(self.cmake_src_dir, "cmake-build-release")
         else:
             self.cmake_bin_dir = osp.abspath(cmake_bin_dir)
         self.cmake_extra_def = cmake_extr_def
@@ -104,9 +105,10 @@ class CmakeExtension:
             self.cmake_src_dir,
             "-B",
             self.cmake_bin_dir,
-            "-G",
-            "Ninja",
+            "-DCMAKE_BUILD_TYPE=Release",
         ]
+        if os.name != "nt":
+            cmd.extend(["-G", "Ninja"])
         for k, v in self.cmake_extra_def.items():
             cmd.append(f"-D{k}={v}")
         return cmd
@@ -117,7 +119,7 @@ class CmakeExtension:
         self._run_cmd(cmd=cmd, term_header=term_header)
 
     def _get_build_cmd(self) -> list[str]:
-        cmd = ["ninja", "-C", self.cmake_bin_dir]
+        cmd = [CMAKE_BIN, "--build", self.cmake_bin_dir, "--config", "release"]
         return cmd
 
     def _get_post_build_cmd(self) -> list[str]:
