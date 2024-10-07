@@ -9,6 +9,7 @@ include = [
     { path = "csrcs", format = "sdist" },
     { path = "python_template/_ext*.so", format = "wheel" },
     { path = "python_template/_ext*.dll", format = "wheel" },
+    { path = "python_template/_ext*.pyd", format = "wheel" },
     { path = "python_template/_ext*.pyi", format = [
         "wheel",
         "sdist",
