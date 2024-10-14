@@ -28,3 +28,28 @@ endfunction()
 
 set(SRC_SET pybind.cc greeter.h greeter.cc)
 add_pyext(ext DESTINATION ${PYTHON_ROOT} SOURCES ${SRC_SET})
+
+
+if (BUILD_TESTS)
+    enable_testing()
+
+    find_package(GTest CONFIG REQUIRED)
+
+    macro(add_g_test TEST_NAME)
+        add_executable(${TEST_NAME} ${ARGN})
+        target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries(${TEST_NAME} INTERFACE Threads::Threads)
+        target_link_libraries(${TEST_NAME} PRIVATE
+                GTest::gtest
+                GTest::gtest_main
+                # If you're using MSVC, don't link gmock.
+                # GTest::gmock
+                # GTest::gmock_main
+        )
+        target_link_libraries(${TEST_NAME} PRIVATE ${MANA_LINK_THIRD_LIBS})
+        add_test(${TEST_NAME} ${TEST_NAME})
+    endmacro()
+
+    # sample
+    # add_g_test(test_sample test/sample/test_sample.cc)
+endif ()

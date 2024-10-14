@@ -22,13 +22,21 @@ CMAKE_BIN = osp.join(cmake.CMAKE_BIN_DIR, CMAKE_BIN)
 # `pybind11-config.cmake` dir
 PYBIND11_CMAKE_DIR = pybind11.get_cmake_dir()
 
-
 PROJECT_ROOT = osp.abspath(osp.dirname(__file__))
+
+VCPKG_ROOT = os.getenv("VCPKG_ROOT", None)
+assert VCPKG_ROOT is not None, "env var VCPKG_ROOT must be set"
+
+VCPKG_CMAKE_TOOLCHAIN_FILE = osp.join(
+    VCPKG_ROOT, "scripts", "buildsystems", "vcpkg.cmake"
+)
+assert osp.exists(VCPKG_CMAKE_TOOLCHAIN_FILE), "cannot find vcpkg cmake toolchain file"
 
 # may be overridden
 CMAKE_DEFAULT_DEF: dict[str, str] = {
     "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
     "pybind11_DIR": PYBIND11_CMAKE_DIR,
+    "CMAKE_TOOLCHAIN_FILE": VCPKG_CMAKE_TOOLCHAIN_FILE,
     "CMAKE_BUILD_TYPE": "Release",
 }
 
