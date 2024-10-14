@@ -7,10 +7,10 @@ license = "MIT"
 readme = "README.md"
 include = [
     { path = "csrcs", format = "sdist" },
-    { path = "python_template/_ext*.so", format = "wheel" },
-    { path = "python_template/_ext*.dll", format = "wheel" },
-    { path = "python_template/_ext*.pyd", format = "wheel" },
-    { path = "python_template/_ext*.pyi", format = [
+    { path = "python_template/ext*.so", format = "wheel" },
+    { path = "python_template/ext*.dll", format = "wheel" },
+    { path = "python_template/ext*.pyd", format = "wheel" },
+    { path = "python_template/ext*.pyi", format = [
         "wheel",
         "sdist",
     ] },
