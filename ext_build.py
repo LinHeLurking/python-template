@@ -25,9 +25,11 @@ PYBIND11_CMAKE_DIR = pybind11.get_cmake_dir()
 
 PROJECT_ROOT = osp.abspath(osp.dirname(__file__))
 
-_CMAKE_DEFAULT_DEF: dict[str, str] = {
+# may be overridden
+CMAKE_DEFAULT_DEF: dict[str, str] = {
     "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
     "pybind11_DIR": PYBIND11_CMAKE_DIR,
+    "CMAKE_BUILD_TYPE": "Release",
 }
 
 
@@ -40,26 +42,40 @@ class CmakeExtension:
         module_name: str,
         cmake_src_dir: str,
         cmake_bin_dir: Optional[str] = None,
-        cmake_extr_def: dict[str, str] = {},
+        cmake_extr_def: Optional[dict[str, str]] = None,
         dry_run: bool = False,
     ) -> None:
+        if cmake_extr_def is None:
+            cmake_extr_def = {}
         self.module_name = module_name
         self.cmake_src_dir = osp.abspath(cmake_src_dir)
+        self.cmake_def = cmake_extr_def
+        # vcpkg chain load if toolchain is set
+        if "CMAKE_TOOLCHAIN_FILE" in cmake_extr_def:
+            self.cmake_def["VCPKG_CHAINLOAD_TOOLCHAIN_FILE"] = cmake_extr_def[
+                "CMAKE_TOOLCHAIN_FILE"
+            ]
+        # add some default definitions if not presented
+        for k, v in CMAKE_DEFAULT_DEF.items():
+            if k not in self.cmake_def:
+                self.cmake_def[k] = v
+        assert "CMAKE_BUILD_TYPE" in self.cmake_def
         if cmake_bin_dir is None:
-            self.cmake_bin_dir = osp.join(self.cmake_src_dir, "cmake-build-release")
+            build_type = self.cmake_def["CMAKE_BUILD_TYPE"].lower()
+            self.cmake_bin_dir = osp.join(
+                self.cmake_src_dir, f"cmake-build-{build_type}"
+            )
         else:
             self.cmake_bin_dir = osp.abspath(cmake_bin_dir)
-        self.cmake_extra_def = cmake_extr_def
-        # add some default definitions if not presented
-        for k, v in _CMAKE_DEFAULT_DEF.items():
-            if k not in self.cmake_extra_def:
-                self.cmake_extra_def[k] = v
+
         self.dry_run = dry_run
         self.cmd_in_shell = False
         self.rm_cmd = "rm"
+        self.rmdir_cmd = "rm"
         if os.name == "nt":
             self.cmd_in_shell = True
             self.rm_cmd = "del"
+            self.rmdir_cmd = "rmdir"
 
         self._cmd_term_headers = {
             "configure": "[CMAKE]",
@@ -105,11 +121,10 @@ class CmakeExtension:
             self.cmake_src_dir,
             "-B",
             self.cmake_bin_dir,
-            "-DCMAKE_BUILD_TYPE=Release",
         ]
         if os.name != "nt":
             cmd.extend(["-G", "Ninja"])
-        for k, v in self.cmake_extra_def.items():
+        for k, v in self.cmake_def.items():
             cmd.append(f"-D{k}={v}")
         return cmd
 
@@ -119,7 +134,8 @@ class CmakeExtension:
         self._run_cmd(cmd=cmd, term_header=term_header)
 
     def _get_build_cmd(self) -> list[str]:
-        cmd = [CMAKE_BIN, "--build", self.cmake_bin_dir, "--config", "release"]
+        build_type = self.cmake_def["CMAKE_BUILD_TYPE"]
+        cmd = [CMAKE_BIN, "--build", self.cmake_bin_dir, "--config", build_type]
         return cmd
 
     def _get_post_build_cmd(self) -> list[str]:
@@ -144,11 +160,30 @@ class CmakeExtension:
         with open(manifest_path, "r") as f:
             for line in f.readlines():
                 lib_path = line.replace("/", osp.sep)
-                pyi_path = f"{lib_path.split(".", 1)[0]}.pyi".replace("/", osp.sep)
                 if osp.exists(lib_path):
                     cmd.append([self.rm_cmd, lib_path])
-                if osp.exists(pyi_path):
-                    cmd.append([self.rm_cmd, pyi_path])
+                base_name = lib_path.split(".", 1)[0]
+                all_pyi = True
+                new_cmd = []
+                if osp.isdir(base_name):
+                    for root, _, file_names in os.walk(base_name):
+                        for file_name in file_names:
+                            if not file_name.endswith(".pyi"):
+                                all_pyi = False
+                                continue
+                            path = osp.join(root, file_name)
+                            if osp.exists(path):
+                                new_cmd.append([self.rm_cmd, path])
+                    if all_pyi:
+                        flag = ["/s", "/q"] if os.name == "nt" else ["-r"]
+                        cmd.append([self.rmdir_cmd, *flag, base_name])
+                    else:
+                        cmd.extend(new_cmd)
+
+                else:
+                    pyi_path = f"{base_name}.pyi".replace("/", osp.sep)
+                    if osp.exists(pyi_path):
+                        cmd.append([self.rm_cmd, pyi_path])
         return cmd
 
     def clean(self):
@@ -158,14 +193,17 @@ class CmakeExtension:
             return
         self._run_cmd(cmd=cmd, term_header=self._cmd_term_headers["clean"])
 
-    def _get_stub_gen_cmd(self) -> list[str]:
+    def _get_stub_gen_cmd(self) -> list[list[str]]:
         cmd = [
-            "stubgen",
-            "--module",
-            self.module_name,
-            "--output",
-            PROJECT_ROOT,
-            "--include-docstrings",
+            [
+                "stubgen",
+                "--package",
+                self.module_name,
+                "--output",
+                PROJECT_ROOT,
+                "--include-docstrings",
+                "--include-private",
+            ]
         ]
         return cmd
 
@@ -181,6 +219,9 @@ def main():
         "--clean", action="store_true", default=False, help="clean all built output"
     )
     arg_parser.add_argument(
+        "--debug", action="store_true", default=False, help="debug build"
+    )
+    arg_parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
@@ -190,11 +231,15 @@ def main():
     if getattr(args, "help", False):
         arg_parser.print_usage()
         return
+    cmake_extra_def = {}
+    if getattr(args, "debug", False):
+        cmake_extra_def["CMAKE_BUILD_TYPE"] = "Debug"
 
     ext_pybind11 = CmakeExtension(
-        module_name="python_template._ext",
+        module_name="python_template.ext",
         cmake_src_dir=osp.join(PROJECT_ROOT, "csrcs"),
         dry_run=args.dry_run,
+        cmake_extr_def=cmake_extra_def,
     )
 
     extensions = [ext_pybind11]

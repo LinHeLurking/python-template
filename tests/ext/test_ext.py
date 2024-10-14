@@ -1,6 +1,6 @@
 import unittest
 
-from python_template._ext import Greeter as ExtGreeter
+from python_template.ext import Greeter as ExtGreeter
 from python_template.hello_world.greeter import Greeter
 
 
