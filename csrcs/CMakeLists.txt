@@ -20,7 +20,6 @@ function(add_pyext PYEXT_NAME)
 
     message(STATUS "building python extension: ${PYEXT_NAME}. sources: ${PYEXT_SOURCES}")
     pybind11_add_module(${PYEXT_NAME} MODULE ${PYEXT_SOURCES})
-    target_link_libraries(${PYEXT_NAME} PRIVATE ${MANA_LINK_THIRD_LIBS})
     target_compile_definitions(${PYEXT_NAME} PRIVATE MODULE_NAME=${PYEXT_MODULE_NAME})
     target_include_directories(${PYEXT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     install(TARGETS ${PYEXT_NAME} DESTINATION ${PYEXT_DESTINATION})
