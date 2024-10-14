@@ -45,7 +45,6 @@ if (BUILD_TESTS)
                 # GTest::gmock
                 # GTest::gmock_main
         )
-        target_link_libraries(${TEST_NAME} PRIVATE ${MANA_LINK_THIRD_LIBS})
         add_test(${TEST_NAME} ${TEST_NAME})
     endmacro()
 
