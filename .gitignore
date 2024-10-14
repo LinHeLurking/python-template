@@ -15,7 +15,7 @@ cmake-build-*
 dist
 *.so
 *.dll
-/python_template/_ext.pyi
+/python_template/*.pyi
 
 # vscode settings
 .vscode
