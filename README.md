@@ -4,7 +4,7 @@ This is a python template project managed using [poetry](https://python-poetry.o
 
 Features:
 
-- [pybind11](https://pybind11.readthedocs.io/en/stable/index.html) powered C++ extension with full type hints(thanks to [mypy stubgen](https://mypy.readthedocs.io/en/stable/stubgen.html))
+- [pybind11](https://pybind11.readthedocs.io/en/stable/index.html) powered C++ extension(built with scikit-build-core)
 - [pytest](https://pytest.org/).
 - [pre-commit](https://pre-commit.com/) hooks with isort, black, clang-format, etc.
 

@@ -33,8 +33,11 @@ pytest = "^8.3.2"
 mypy = "^1.11.1"
 pre-commit = "^3.8.0"
 
+[tool.scikit-build.cmake]
+source-dir = "csrcs"
+
 [build-system]
-requires = ["poetry-core", "ninja", "cmake", "mypy", "pybind11"]
+requires = ["poetry-core", "pybind11", "tomli", "tomli_w", "scikit-build-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.build]
