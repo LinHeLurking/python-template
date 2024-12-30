@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(PythonExt LANGUAGES C CXX)
-
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
-file(REAL_PATH ${CMAKE_CURRENT_LIST_DIR}/../python_template PYTHON_ROOT)
-message(STATUS "python source root: ${PYTHON_ROOT}")
+
+message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 
 function(add_pyext PYEXT_NAME)
     set(_OPTIONS)
@@ -22,7 +21,8 @@ function(add_pyext PYEXT_NAME)
     pybind11_add_module(${PYEXT_NAME} MODULE ${PYEXT_SOURCES})
     target_compile_definitions(${PYEXT_NAME} PRIVATE MODULE_NAME=${PYEXT_MODULE_NAME})
     target_include_directories(${PYEXT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    install(TARGETS ${PYEXT_NAME} DESTINATION ${PYEXT_DESTINATION})
+    # must use abs path, otherwise scikit-build overwrites it.
+    install(TARGETS ${PYEXT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/)
 endfunction()
 
 set(SRC_SET pybind.cc greeter.h greeter.cc)

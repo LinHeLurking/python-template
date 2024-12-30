@@ -27,11 +27,11 @@ optional = true
 
 [tool.poetry.group.dev.dependencies]
 pybind11 = "^2.13.5"
-ninja = "^1.11.1.1"
-cmake = "^3.30.2"
 pytest = "^8.3.2"
-mypy = "^1.11.1"
 pre-commit = "^3.8.0"
+tomli = "^2.2.1"
+tomli-w = "^1.1.0"
+scikit-build-core = "^0.10.7"
 
 [tool.scikit-build.cmake]
 source-dir = "csrcs"

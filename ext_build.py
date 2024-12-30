@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-
+import argparse
 import os
 import shutil
-import tempfile
 import typing
 from os import path as osp
 from typing import Any, Literal
@@ -12,7 +11,7 @@ import tomli_w
 from scikit_build_core.build import build_editable, build_sdist, build_wheel
 
 
-def _rewrite_pyproject(path: str):
+def _rewrite_pyproject(path: str) -> dict[str, Any]:
     if osp.isdir(path):
         path = osp.join(path, "pyproject.toml")
     with open(path, "rb") as f:
@@ -57,17 +56,7 @@ def _rewrite_pyproject(path: str):
     with open(path, "wb") as f:
         tomli_w.dump(config, f)
 
-
-def _build_one(target: Literal["sdist", "wheel", "editable"]) -> str:
-    match target:
-        case "sdist":
-            return build_sdist("dist")
-        case "wheel":
-            return build_wheel("dist")
-        case "editable":
-            return build_editable("dist")
-        case _:
-            raise ValueError(f"Unknown target: {target}")
+    return config
 
 
 class ScikitBuild:
@@ -75,8 +64,13 @@ class ScikitBuild:
 
     def __init__(self):
         super().__init__()
-        self._tmp_dir: str | None = None
         self._old_cwd: list[str] = []
+        self._toml_config: dict[str, Any] = {}
+        self._cmake_build_dir = osp.abspath(
+            osp.join(osp.dirname(__file__), "build", "cmake-build")
+        )
+        self._real_source_dir = osp.abspath(os.getcwd())
+        self._tmp_dir = osp.join(self._real_source_dir, "build", "src-copy")
 
     def info(self, text: str):
         print(f"\u001b[34m[{self.TOOL_NAME}]\u001b[0m {text}")
@@ -92,8 +86,9 @@ class ScikitBuild:
         os.chdir(d)
         self.info(f"Switched to {d}")
 
-    def _initialize(self):
-        self._tmp_dir = tempfile.mkdtemp()
+    def _extra_initialize(self):
+        if not osp.exists(self._tmp_dir):
+            os.makedirs(self._tmp_dir)
         self.info(f"Using temporary directory: {self._tmp_dir}")
 
         # sync all source files
@@ -103,64 +98,79 @@ class ScikitBuild:
             "*.pyc",
             "venv",
             ".venv",
+            "build",
+            ".idea",
+            ".vscode",
         )
         for name in os.listdir("."):
-            if name == "build":
-                continue
             if name in ignore:
                 continue
             if osp.isdir(name):
-                shutil.copytree(src=name, dst=osp.join(self._tmp_dir, name))
+                shutil.copytree(
+                    src=name, dst=osp.join(self._tmp_dir, name), dirs_exist_ok=True
+                )  # overwrite
             elif osp.isfile(name):
                 shutil.copy(src=name, dst=osp.join(self._tmp_dir, name))
-        _rewrite_pyproject(path=self._tmp_dir)
+        self._toml_config = _rewrite_pyproject(path=self._tmp_dir)
+
+    def _build_one(self, target: Literal["sdist", "wheel", "editable"]) -> str:
+        py_source_dir = osp.join(
+            self._real_source_dir, self._toml_config["project"]["name"]
+        )
+        settings = {
+            "skbuild.build.verbose": True,
+            "skbuild.build-dir": self._cmake_build_dir,
+            "skbuild.cmake.args": [f"-DCMAKE_INSTALL_PREFIX={py_source_dir}"],
+        }
+        match target:
+            case "sdist":
+                return build_sdist("dist", settings)
+            case "wheel":
+                return build_wheel("dist", settings)
+            case "editable":
+                return build_editable("dist", settings)
+            case _:
+                raise ValueError(f"Unknown target: {target}")
 
     def _build(self):
         self._pushd(self._tmp_dir)
         # build all
         for target in ["wheel"]:
-            _build_one(
+            self._build_one(
                 target=typing.cast(Literal["wheel", "sdist", "editable"], target)
             )
         self._popd()
 
-    def _write_results(self):
-        # TODO: maybe installing according to cmake manifest is a better idea.
-        with open(osp.join(self._tmp_dir, "pyproject.toml"), "rb") as f:
-            config = tomli.load(f)
-        project_name = config["project"]["name"]
-        built_src_dir = osp.join(self._tmp_dir, project_name)
-        real_src_dir = osp.abspath(project_name)
-        postfixes = [".so", ".dll", ".pyd", ".dylib"]
-        for dir_path, dir_names, file_names in os.walk(built_src_dir):
-            for file_name in file_names:
-                ext = file_name.split(".")[-1]
-                if not ext.startswith("."):
-                    ext = f".{ext}"
-                if ext not in postfixes:
-                    continue
-                src = osp.join(built_src_dir, file_name)
-                dst = osp.join(real_src_dir, file_name)
-                shutil.copy(src=src, dst=dst)
-                self.info(f"Copied built binary lib: {src} -> {dst}")
-
-    def _cleanup(self):
-        if not self._tmp_dir:
+    def clean(self):
+        if not osp.exists(self._cmake_build_dir):
+            self.info(f"Cannot find cmake build directory: {self._cmake_build_dir}")
             return
-        shutil.rmtree(self._tmp_dir)
-        self.info(f"Removed temporary directory: {self._tmp_dir}")
-        self._tmp_dir = None
+        manifest = osp.join(self._cmake_build_dir, "install_manifest.txt")
+        if not osp.exists(manifest):
+            self.info(f"Cannot find manifest file: {manifest}")
+        with open(manifest, "r") as f:
+            for target_path in f:
+                self.info(f"Removing: {target_path}")
+                os.remove(target_path)
 
-    def run(self) -> int:
-        self._initialize()
+    def build(self):
+        self._extra_initialize()
         self._build()
-        self._write_results()
-        self._cleanup()
-        return 0
+
+
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--clean", action="store_true", default=False)
+    return parser.parse_args()
 
 
 def main():
-    ScikitBuild().run()
+    args = get_args()
+    builder = ScikitBuild()
+    if args.clean:
+        builder.clean()
+    else:
+        builder.build()
 
 
 if __name__ == "__main__":
